@@ -12,32 +12,35 @@ provider "aws" {
   region = var.region
 }
 
-
-
-# ──────────────────────────────
 # VPC MODULE
-# ──────────────────────────────
 module "vpc" {
-  # Static string literal path is REQUIRED for the source attribute
-  source              = "../../modules/vpc"
+  # We use the variable to construct the full path reliably in CI/CD.
+  # Note the structure: var.source_path_prefix + "modules/vpc"
+  source              = "${var.source_path_prefix}modules/vpc"
   project             = var.project
   vpc_cidr            = var.vpc_cidr
-  # ... other variables
+  public_subnet_cidr  = var.public_subnet_cidr
+  private_subnet_cidr = var.private_subnet_cidr
+  az_1                = var.az_1
+  az_2                = var.az_2
 }
 
-# ──────────────────────────────
 # SECURITY GROUP MODULE
-# ──────────────────────────────
 module "security" {
-  source  = "../../modules/security"
+  source  = "${var.source_path_prefix}modules/security"
   vpc_id  = module.vpc.vpc_id
   project = var.project
 }
 
-# ──────────────────────────────
 # EC2 MODULE
-# ──────────────────────────────
 module "ec2" {
-  source              = "../../modules/ec2"
-  # ... other variables
+  source              = "${var.source_path_prefix}modules/ec2"
+  project             = var.project
+  ami_id              = var.ami_id
+  instance_type       = var.instance_type
+  sg_id               = module.security.sg_id
+  public_subnet_id    = module.vpc.public_subnet_id
+  private_subnet_id   = module.vpc.private_subnet_id
+  instance_count      = var.instance_count
+  assign_public_ip    = var.assign_public_ip
 }
