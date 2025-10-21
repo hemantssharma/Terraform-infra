@@ -20,50 +20,81 @@ on:
           - stg
           - prod
 
+# ------------------------------------------------------------------
+# ENVIRONMENT AND PERMISSIONS
+# ------------------------------------------------------------------
 env:
   TF_VERSION: 1.9.6
   AWS_REGION: us-east-1
 
 permissions:
-  id-token: write        # Required for OIDC authentication
-  contents: read         # To read repo contents
+  id-token: write      # Required for OIDC authentication
+  contents: read       # To read repo contents
 
 jobs:
   terraform:
     name: Terraform Deploy
     runs-on: ubuntu-latest
 
+    # This security feature is recommended when using OIDC
+    environment: ${{ github.event.inputs.environment }} 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # 💡 FIX 1: Set Working Directory and Module Path Prefix
+      # This addresses the "Unreadable module directory" error.
+      # ------------------------------------------------------------------
+      - name: Set Paths and Variables
+        id: set_paths
+        run: |
+          # Define the working directory once
+          echo "TF_WORKING_DIR=projects/${{ github.event.inputs.project }}" >> $GITHUB_ENV
+          
+          # Define the absolute path prefix for module sourcing (The Fix!)
+          # GITHUB_WORKSPACE is the repo root, e.g., /home/runner/work/repo-name/repo-name/
+          echo "SOURCE_PATH_PREFIX=$GITHUB_WORKSPACE/" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      # ------------------------------------------------------------------
+      # OIDC CONFIGURATION (Your existing setup is correct!)
+      # ------------------------------------------------------------------
       - name: Configure AWS credentials (via OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          # Your IAM Role ARN for OIDC assumption
           role-to-assume: arn:aws:iam::124645972679:role/TF-role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Initialize Terraform
-        working-directory: projects/${{ github.event.inputs.project }}
+        # Use the variable defined in Step 1
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
 
       - name: Select/Create Workspace
-        working-directory: projects/${{ github.event.inputs.project }}
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform workspace list | grep -q "${{ github.event.inputs.environment }}" \
-            && terraform workspace select ${{ github.event.inputs.environment }} \
+          terraform workspace select ${{ github.event.inputs.environment }} \
             || terraform workspace new ${{ github.event.inputs.environment }}
 
+      # ------------------------------------------------------------------
+      # 💡 FIX 2: Pass the SOURCE_PATH_PREFIX to Terraform
+      # ------------------------------------------------------------------
       - name: Terraform Plan
         id: plan
-        working-directory: projects/${{ github.event.inputs.project }}
-        run: terraform plan -input=false -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          TF_VARS='-var-file="environments/${{ github.event.inputs.environment }}.tfvars" -var="source_path_prefix=${{ env.SOURCE_PATH_PREFIX }}"'
+          terraform plan -input=false $TF_VARS
 
       - name: Terraform Apply
-        working-directory: projects/${{ github.event.inputs.project }}
-        run: terraform apply -auto-approve -input=false -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          TF_VARS='-var-file="environments/${{ github.event.inputs.environment }}.tfvars" -var="source_path_prefix=${{ env.SOURCE_PATH_PREFIX }}"'
+          terraform apply -auto-approve -input=false $TF_VARS
