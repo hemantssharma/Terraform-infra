@@ -1,0 +1,11 @@
+project             = "project-3"
+region              = "us-east-2"  # Ohio
+vpc_cidr            = "10.1.0.0/16"
+public_subnet_cidr  = "10.1.1.0/24"
+private_subnet_cidr = "10.1.2.0/24"
+az_1                = "us-east-2a"
+az_2                = "us-east-2b"
+ami_id              = "ami-0199d4b5b8b4fde0e"
+instance_type       = "t2.micro"
+instance_count      = 1
+assign_public_ip    = true

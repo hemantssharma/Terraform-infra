@@ -1,0 +1,11 @@
+project             = "project-1"
+region              = "us-east-1"  # N. Virginia
+vpc_cidr            = "10.2.0.0/16"
+public_subnet_cidr  = "10.2.1.0/24"
+private_subnet_cidr = "10.2.2.0/24"
+az_1                = "us-east-1a"
+az_2                = "us-east-1b"
+ami_id              = "ami-0341d95f75f311023"
+instance_type       = "t2.micro"
+instance_count      = 2
+assign_public_ip    = false

@@ -1,0 +1,11 @@
+project             = "project-1"
+region              = "ap-south-1"  # Mumbai
+vpc_cidr            = "10.0.0.0/16"
+public_subnet_cidr  = "10.0.1.0/24"
+private_subnet_cidr = "10.0.2.0/24"
+az_1                = "ap-south-1a"
+az_2                = "ap-south-1b"
+ami_id              = "ami-06fa3f12191aa3337"
+instance_type       = "t2.micro"
+instance_count      = 1
+assign_public_ip    = true
