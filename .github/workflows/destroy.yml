@@ -1,0 +1,49 @@
+name: Terraform Destroy
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project name"
+        required: true
+        type: choice
+        options:
+          - project-1
+          - project-2
+          - project-3
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform init
+
+      - name: Select Workspace
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform workspace select ${{ github.event.inputs.environment }}
+
+      - name: Terraform Destroy
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform destroy -auto-approve -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
