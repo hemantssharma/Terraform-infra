@@ -12,11 +12,13 @@ provider "aws" {
   region = var.region
 }
 
+
 # ──────────────────────────────
 # VPC MODULE
 # ──────────────────────────────
 module "vpc" {
-  source              = "../../modules/vpc"
+  # path.root is the directory containing the current configuration (projects/project-1)
+  source              = "${path.root}/../../modules/vpc"
   project             = var.project
   vpc_cidr            = var.vpc_cidr
   public_subnet_cidr  = var.public_subnet_cidr
@@ -29,7 +31,7 @@ module "vpc" {
 # SECURITY GROUP MODULE
 # ──────────────────────────────
 module "security" {
-  source  = "../../modules/security"
+  source  = "${path.root}/../../modules/security"
   vpc_id  = module.vpc.vpc_id
   project = var.project
 }
@@ -38,13 +40,13 @@ module "security" {
 # EC2 MODULE
 # ──────────────────────────────
 module "ec2" {
-  source            = "../../modules/ec2"
-  project           = var.project
-  ami_id            = var.ami_id
-  instance_type     = var.instance_type
-  sg_id             = module.security.sg_id
-  public_subnet_id  = module.vpc.public_subnet_id
-  private_subnet_id = module.vpc.private_subnet_id
-  instance_count    = var.instance_count
-  assign_public_ip  = var.assign_public_ip
+  source              = "${path.root}/../../modules/ec2"
+  project             = var.project
+  ami_id              = var.ami_id
+  instance_type       = var.instance_type
+  sg_id               = module.security.sg_id
+  public_subnet_id    = module.vpc.public_subnet_id
+  private_subnet_id   = module.vpc.private_subnet_id
+  instance_count      = var.instance_count
+  assign_public_ip    = var.assign_public_ip
 }
