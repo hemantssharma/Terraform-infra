@@ -1,0 +1,60 @@
+name: Terraform Multi-Project Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_VERSION: ${{ secrets.TF_VERSION || '1.9.6' }}
+  AWS_REGION: us-east-1
+
+jobs:
+  terraform:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        project: [project-1, project-2, project-3]
+        environment: [dev, stg, prod]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Initialize Terraform
+        working-directory: projects/${{ matrix.project }}
+        run: terraform init -input=false
+
+      - name: Select/Create Workspace
+        working-directory: projects/${{ matrix.project }}
+        run: |
+          terraform workspace list | grep -q "${{ matrix.environment }}" \
+            && terraform workspace select ${{ matrix.environment }} \
+            || terraform workspace new ${{ matrix.environment }}
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: projects/${{ matrix.project }}
+        run: terraform plan -input=false -var-file="environments/${{ matrix.environment }}.tfvars"
+
+      - name: Terraform Apply (on main branch only)
+        if: github.ref == 'refs/heads/main'
+        working-directory: projects/${{ matrix.project }}
+        run: terraform apply -auto-approve -input=false -var-file="environments/${{ matrix.environment }}.tfvars"
