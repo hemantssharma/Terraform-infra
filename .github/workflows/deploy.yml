@@ -1,60 +1,54 @@
-name: Terraform Multi-Project Pipeline
+name: Terraform Destroy
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project name"
+        required: true
+        type: choice
+        options:
+          - project-1
+          - project-2
+          - project-3
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
 
-env:
-  TF_VERSION: ${{ secrets.TF_VERSION || '1.9.6' }}
-  AWS_REGION: us-east-1
+permissions:
+  id-token: write        # 👈 Required for OIDC
+  contents: read         # 👈 Allows reading repo content
 
 jobs:
-  terraform:
-    name: Terraform Deploy
+  destroy:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        project: [project-1, project-2, project-3]
-        environment: [dev, stg, prod]
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::124645972679:role/TF-role  # 👈 Your IAM role
+          aws-region: us-east-1
 
-      - name: Initialize Terraform
-        working-directory: projects/${{ matrix.project }}
-        run: terraform init -input=false
+      - name: Terraform Init
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform init
 
-      - name: Select/Create Workspace
-        working-directory: projects/${{ matrix.project }}
-        run: |
-          terraform workspace list | grep -q "${{ matrix.environment }}" \
-            && terraform workspace select ${{ matrix.environment }} \
-            || terraform workspace new ${{ matrix.environment }}
+      - name: Select Workspace
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform workspace select ${{ github.event.inputs.environment }}
 
-      - name: Terraform Plan
-        id: plan
-        working-directory: projects/${{ matrix.project }}
-        run: terraform plan -input=false -var-file="environments/${{ matrix.environment }}.tfvars"
-
-      - name: Terraform Apply (on main branch only)
-        if: github.ref == 'refs/heads/main'
-        working-directory: projects/${{ matrix.project }}
-        run: terraform apply -auto-approve -input=false -var-file="environments/${{ matrix.environment }}.tfvars"
+      - name: Terraform Destroy
+        working-directory: projects/${{ github.event.inputs.project }}
+        run: terraform destroy -auto-approve -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
